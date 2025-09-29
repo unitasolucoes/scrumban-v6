@@ -80,13 +80,25 @@ class PluginScrumbanTeam extends CommonDBTM {
     }
     
     function post_addItem() {
-        // Adicionar o criador como administrador da equipe
-        $team_member = new PluginScrumbanTeamMember();
-        $team_member->add([
-            'teams_id' => $this->fields['id'],
-            'users_id' => Session::getLoginUserID(),
-            'role' => 'admin'
+        $creator_id = Session::getLoginUserID();
+
+        $member = new PluginScrumbanTeamMember();
+        $member->add([
+            'teams_id'      => $this->fields['id'],
+            'users_id'      => $creator_id,
+            'role'          => 'admin',
+            'date_creation' => $_SESSION['glpi_currenttime']
         ]);
+
+        if (class_exists('Log')) {
+            Log::history(
+                $this->fields['id'],
+                $this->getType(),
+                [0, '', ''],
+                0,
+                Log::HISTORY_CREATE_ITEM
+            );
+        }
     }
     
     function prepareInputForUpdate($input) {
@@ -169,6 +181,14 @@ class PluginScrumbanTeam extends CommonDBTM {
      * Verificar se o usuário pode gerenciar uma equipe
      */
     function canUserManage($user_id) {
+        if (Session::haveRight('config', UPDATE)) {
+            return true;
+        }
+
+        if (!empty($this->fields['users_id_created']) && $this->fields['users_id_created'] == $user_id) {
+            return true;
+        }
+
         $role = self::getUserRole($user_id, $this->fields['id']);
         return in_array($role, ['admin', 'lead']);
     }

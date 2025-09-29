@@ -1,659 +1,244 @@
 <?php
 
-class PluginScrumbanCard extends CommonDBTM {
-    
-    static $rightname = 'scrumban_card';
-    
+class PluginScrumbanTeamMember extends CommonDBTM {
+    static $rightname = 'scrumban_team';
+    public $dohistory = true;
+    static $logs_for_parent = true;
+
     static function getTypeName($nb = 0) {
-        return _n('Card', 'Cards', $nb, 'scrumban');
+        return _n('Membro da Equipe', 'Membros da Equipe', $nb, 'scrumban');
     }
-    
-    static function getIcon() {
-        return 'fas fa-sticky-note';
-    }
-    
+
     function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
-        if ($item->getType() == 'PluginScrumbanBoard') {
-            $nb = countElementsInTable($this->getTable(), ['boards_id' => $item->getField('id')]);
+        if ($item->getType() == 'PluginScrumbanTeam') {
+            $nb = countElementsInTable($this->getTable(), ['teams_id' => $item->getID()]);
             return self::createTabEntry(self::getTypeName($nb), $nb);
         }
+
         return '';
     }
-    
+
     static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
-        if ($item->getType() == 'PluginScrumbanBoard') {
-            self::showForBoard($item);
+        if ($item->getType() == 'PluginScrumbanTeam') {
+            self::showForTeam($item);
         }
+
         return true;
     }
-    
-    function defineTabs($options = []) {
-        $ong = [];
-        $this->addDefaultFormTab($ong);
-        $this->addStandardTab('Document_Item', $ong, $options);
-        return $ong;
-    }
-    
-    function showForm($ID, $options = []) {
-        $this->initForm($ID, $options);
-        $this->showFormHeader($options);
-        
-        // Primeira linha
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Nome', 'scrumban') . "</td>";
-        echo "<td>";
-        Html::autocompletionTextField($this, 'name', ['value' => $this->fields['name']]);
-        echo "</td>";
-        echo "<td>" . __('Quadro', 'scrumban') . "</td>";
-        echo "<td>";
-        $boards = PluginScrumbanBoard::getBoardsForUser(Session::getLoginUserID());
-        $board_options = [0 => __('Selecione um quadro', 'scrumban')];
-        foreach ($boards as $board) {
-            $board_options[$board['id']] = $board['name'];
-        }
-        Dropdown::showFromArray('boards_id', $board_options, ['value' => $this->fields['boards_id']]);
-        echo "</td>";
-        echo "</tr>";
-        
-        // Segunda linha
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Tipo', 'scrumban') . "</td>";
-        echo "<td>";
-        $type_options = [
-            'feature' => __('Funcionalidade', 'scrumban'),
-            'bug' => __('Bug', 'scrumban'),
-            'task' => __('Tarefa', 'scrumban'),
-            'story' => __('História', 'scrumban')
-        ];
-        Dropdown::showFromArray('type', $type_options, ['value' => $this->fields['type']]);
-        echo "</td>";
-        echo "<td>" . __('Prioridade', 'scrumban') . "</td>";
-        echo "<td>";
-        $priority_options = [
-            'LOW' => __('Baixa', 'scrumban'),
-            'NORMAL' => __('Normal', 'scrumban'),
-            'HIGH' => __('Alta', 'scrumban'),
-            'CRITICAL' => __('Crítica', 'scrumban')
-        ];
-        Dropdown::showFromArray('priority', $priority_options, ['value' => $this->fields['priority']]);
-        echo "</td>";
-        echo "</tr>";
-        
-        // Terceira linha
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Responsável', 'scrumban') . "</td>";
-        echo "<td>";
-        User::dropdown(['name' => 'users_id_assigned', 'value' => $this->fields['users_id_assigned']]);
-        echo "</td>";
-        echo "<td>" . __('Solicitante', 'scrumban') . "</td>";
-        echo "<td>";
-        User::dropdown(['name' => 'users_id_requester', 'value' => $this->fields['users_id_requester']]);
-        echo "</td>";
-        echo "</tr>";
-        
-        // Quarta linha
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Story Points', 'scrumban') . "</td>";
-        echo "<td>";
-        echo "<input type='number' name='story_points' value='" . $this->fields['story_points'] . "' min='0' max='100'>";
-        echo "</td>";
-        echo "<td>" . __('Status', 'scrumban') . "</td>";
-        echo "<td>";
-        $status_options = [
-            'backlog' => __('Backlog', 'scrumban'),
-            'todo' => __('A Fazer', 'scrumban'),
-            'em-execucao' => __('Em Execução', 'scrumban'),
-            'review' => __('Review', 'scrumban'),
-            'done' => __('Concluído', 'scrumban')
-        ];
-        Dropdown::showFromArray('status', $status_options, ['value' => $this->fields['status']]);
-        echo "</td>";
-        echo "</tr>";
-        
-        // Quinta linha - Datas
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Data Planejada', 'scrumban') . "</td>";
-        echo "<td>";
-        Html::showDateTimeField('date_planned', ['value' => $this->fields['date_planned']]);
-        echo "</td>";
-        echo "<td>" . __('Data de Conclusão', 'scrumban') . "</td>";
-        echo "<td>";
-        Html::showDateTimeField('date_completion', ['value' => $this->fields['date_completion']]);
-        echo "</td>";
-        echo "</tr>";
-        
-        // Sexta linha - Sprint e Labels
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Sprint', 'scrumban') . "</td>";
-        echo "<td>";
-        if ($this->fields['boards_id']) {
-            $sprint = new PluginScrumbanSprint();
-            $sprint_options = [0 => __('Nenhum sprint', 'scrumban')];
-            $sprints = $sprint->find(['boards_id' => $this->fields['boards_id']]);
-            foreach ($sprints as $sprint_data) {
-                $sprint_options[$sprint_data['id']] = $sprint_data['name'];
-            }
-            Dropdown::showFromArray('sprint_id', $sprint_options, ['value' => $this->fields['sprint_id']]);
-        } else {
-            echo __('Selecione um quadro primeiro', 'scrumban');
-        }
-        echo "</td>";
-        echo "<td>" . __('Labels', 'scrumban') . "</td>";
-        echo "<td>";
-        echo "<input type='text' name='labels' value='" . $this->fields['labels'] . "' placeholder='tag1, tag2, tag3'>";
-        echo "</td>";
-        echo "</tr>";
-        
-        // Descrição
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Descrição', 'scrumban') . "</td>";
-        echo "<td colspan='3'>";
-        echo "<textarea name='description' rows='4' cols='100'>" . $this->fields['description'] . "</textarea>";
-        echo "</td>";
-        echo "</tr>";
-        
-        // Critérios de Aceitação
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Critérios de Aceitação', 'scrumban') . "</td>";
-        echo "<td colspan='3'>";
-        echo "<textarea name='acceptance_criteria' rows='4' cols='100'>" . $this->fields['acceptance_criteria'] . "</textarea>";
-        echo "</td>";
-        echo "</tr>";
-        
-        // Cenários de Teste
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Cenários de Teste', 'scrumban') . "</td>";
-        echo "<td colspan='3'>";
-        echo "<textarea name='test_scenarios' rows='4' cols='100'>" . $this->fields['test_scenarios'] . "</textarea>";
-        echo "</td>";
-        echo "</tr>";
-        
-        // Seção de Desenvolvimento
-        echo "<tr><td colspan='4'><hr><h3>" . __('Desenvolvimento', 'scrumban') . "</h3></td></tr>";
-        
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Branch', 'scrumban') . "</td>";
-        echo "<td>";
-        echo "<input type='text' name='branch' value='" . $this->fields['branch'] . "' placeholder='feature/new-feature'>";
-        echo "</td>";
-        echo "<td>" . __('Pull Request', 'scrumban') . "</td>";
-        echo "<td>";
-        echo "<input type='text' name='pull_request' value='" . $this->fields['pull_request'] . "' placeholder='PR-123'>";
-        echo "</td>";
-        echo "</tr>";
-        
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('Commits', 'scrumban') . "</td>";
-        echo "<td colspan='3'>";
-        echo "<textarea name='commits' rows='3' cols='100'>" . $this->fields['commits'] . "</textarea>";
-        echo "</td>";
-        echo "</tr>";
-        
-        // DoR e DoD
-        echo "<tr class='tab_bg_1'>";
-        echo "<td>" . __('DoR (%)', 'scrumban') . "</td>";
-        echo "<td>";
-        echo "<input type='range' name='dor_percentage' min='0' max='100' value='" . $this->fields['dor_percentage'] . "' oninput='updatePercentage(this, \"dor\")'>";
-        echo "<span id='dor_value'>" . $this->fields['dor_percentage'] . "%</span>";
-        echo "</td>";
-        echo "<td>" . __('DoD (%)', 'scrumban') . "</td>";
-        echo "<td>";
-        echo "<input type='range' name='dod_percentage' min='0' max='100' value='" . $this->fields['dod_percentage'] . "' oninput='updatePercentage(this, \"dod\")'>";
-        echo "<span id='dod_value'>" . $this->fields['dod_percentage'] . "%</span>";
-        echo "</td>";
-        echo "</tr>";
-        
-        $this->showFormButtons($options);
-        
-        // JavaScript para atualizar percentuais
-        echo "<script>
-        function updatePercentage(input, type) {
-            document.getElementById(type + '_value').textContent = input.value + '%';
-        }
-        </script>";
-        
-        return true;
-    }
-    
-    function prepareInputForAdd($input) {
-        $input['date_creation'] = $_SESSION['glpi_currenttime'];
-        $input['users_id_created'] = Session::getLoginUserID();
-        
-        if (!isset($input['entities_id'])) {
-            $input['entities_id'] = $_SESSION['glpiactive_entity'];
-        }
-        
-        // Log da criação
-        $this->logHistory('create', '', $input['name']);
-        
-        return $input;
-    }
-    
-    function prepareInputForUpdate($input) {
-        $input['date_mod'] = $_SESSION['glpi_currenttime'];
-        
-        // Log das alterações
-        foreach ($input as $field => $new_value) {
-            if (isset($this->fields[$field]) && $this->fields[$field] != $new_value) {
-                $this->logHistory('update', $field, $this->fields[$field], $new_value);
-            }
-        }
-        
-        return $input;
-    }
-    
-    /**
-     * Registrar histórico de alterações
-     */
-    function logHistory($action, $field = '', $old_value = '', $new_value = '') {
+
+    static function showForTeam(PluginScrumbanTeam $team) {
         global $DB;
-        
-        $history = [
-            'cards_id' => $this->fields['id'] ?? 0,
-            'users_id' => Session::getLoginUserID(),
-            'action' => $action,
-            'field' => $field,
-            'old_value' => $old_value,
-            'new_value' => $new_value,
-            'date_creation' => $_SESSION['glpi_currenttime']
-        ];
-        
-        $DB->insert('glpi_plugin_scrumban_history', $history);
-    }
-    
-    /**
-     * Mostrar cards de um quadro
-     */
-    static function showForBoard(PluginScrumbanBoard $board) {
-        global $DB;
-        
-        $query = "SELECT c.*, 
-                         ua.realname as assigned_name, ua.firstname as assigned_firstname,
-                         ur.realname as requester_name, ur.firstname as requester_firstname
-                  FROM glpi_plugin_scrumban_cards c
-                  LEFT JOIN glpi_users ua ON ua.id = c.users_id_assigned  
-                  LEFT JOIN glpi_users ur ON ur.id = c.users_id_requester
-                  WHERE c.boards_id = '" . $board->fields['id'] . "'
-                  ORDER BY c.date_creation DESC";
-        
-        $result = $DB->query($query);
-        
+
+        $team_id    = $team->fields['id'];
+        $current_id = Session::getLoginUserID();
+        $can_manage = $team->canUserManage($current_id);
+        $user_role  = PluginScrumbanTeam::getUserRole($current_id, $team_id);
+
         echo "<div class='spaced'>";
-        
-        if (PluginScrumbanBoard::canUserEditBoard(Session::getLoginUserID(), $board->fields['id'])) {
-            echo "<div class='center'>";
-            echo "<a href='" . PluginScrumbanCard::getFormURL() . "?boards_id=" . $board->fields['id'] . "' class='btn btn-primary'>";
-            echo "<i class='fas fa-plus'></i> " . __('Novo Card', 'scrumban');
-            echo "</a>";
-            echo "</div><br>";
+
+        if ($can_manage) {
+            echo "<div class='right mb-2'>";
+            echo "<button type='button' class='btn btn-primary' data-trigger='scrumban-open-add-member' data-team-id='" . $team_id . "'>";
+            echo "<i class='fas fa-user-plus'></i> " . __('Adicionar membro', 'scrumban');
+            echo "</button>";
+            echo "</div>";
         }
-        
+
         echo "<table class='tab_cadre_fixehov'>";
-        echo "<tr class='tab_bg_1'>";
-        echo "<th>ID</th>";
-        echo "<th>" . __('Nome', 'scrumban') . "</th>";
-        echo "<th>" . __('Tipo', 'scrumban') . "</th>";
-        echo "<th>" . __('Prioridade', 'scrumban') . "</th>";
-        echo "<th>" . __('Status', 'scrumban') . "</th>";
-        echo "<th>" . __('Responsável', 'scrumban') . "</th>";
-        echo "<th>" . __('Story Points', 'scrumban') . "</th>";
+        echo "<thead>";
+        echo "<tr>";
+        echo "<th>" . __('Usuário', 'scrumban') . "</th>";
+        echo "<th>" . __('Papel', 'scrumban') . "</th>";
+        echo "<th>" . __('Data de entrada', 'scrumban') . "</th>";
+        echo "<th>" . __('Ações', 'scrumban') . "</th>";
         echo "</tr>";
-        
-        while ($data = $DB->fetchAssoc($result)) {
-            echo "<tr class='tab_bg_2'>";
-            echo "<td>#" . $data['id'] . "</td>";
-            echo "<td><a href='" . PluginScrumbanCard::getFormURLWithID($data['id']) . "'>" . $data['name'] . "</a></td>";
-            echo "<td>" . ucfirst($data['type']) . "</td>";
-            echo "<td><span class='badge badge-" . self::getPriorityColor($data['priority']) . "'>" . $data['priority'] . "</span></td>";
-            echo "<td>" . self::getStatusName($data['status']) . "</td>";
-            echo "<td>" . ($data['assigned_firstname'] ? $data['assigned_firstname'] . " " . $data['assigned_name'] : '-') . "</td>";
-            echo "<td>" . ($data['story_points'] ?: '-') . "</td>";
-            echo "</tr>";
+        echo "</thead>";
+        echo "<tbody>";
+
+        $query = "SELECT tm.*, u.firstname, u.realname, u.name AS login\n                  FROM " . $DB->quoteName('glpi_plugin_scrumban_team_members') . " tm\n                  LEFT JOIN " . $DB->quoteName('glpi_users') . " u ON (u.id = tm.users_id)\n                  WHERE tm.teams_id = '" . (int)$team_id . "'\n                  ORDER BY FIELD(tm.role, 'admin', 'lead', 'member'), u.realname";
+
+        $result = $DB->query($query);
+        if ($DB->numrows($result) === 0) {
+            echo "<tr class='tab_bg_1'><td colspan='4' class='center'>" . __('Nenhum membro cadastrado', 'scrumban') . "</td></tr>";
+        } else {
+            while ($member = $DB->fetchAssoc($result)) {
+                $fullname = trim(($member['firstname'] ?? '') . ' ' . ($member['realname'] ?? ''));
+                if ($fullname === '') {
+                    $fullname = $member['login'];
+                }
+
+                echo "<tr class='tab_bg_1'>";
+                $user_cell = Html::clean($fullname ?: __('Usuário removido', 'scrumban'));
+                if (!empty($member['users_id'])) {
+                    $user_cell = Html::link($user_cell, User::getFormURLWithID($member['users_id']));
+                }
+                echo "<td>" . $user_cell . "</td>";
+                echo "<td>" . self::getRoleBadge($member['role']) . "</td>";
+                echo "<td>" . ($member['date_creation'] ? Html::convDateTime($member['date_creation']) : '-') . "</td>";
+                echo "<td class='center'>";
+
+                if ($can_manage && $member['users_id'] != $current_id) {
+                    $role_options = PluginScrumbanTeam::getRoleOptions();
+                    echo "<div class='d-flex justify-content-center align-items-center'>";
+                    echo "<select class='scrumban-change-role' data-member-id='" . (int)$member['id'] . "' data-team-id='" . $team_id . "'>";
+                    foreach ($role_options as $role_key => $role_label) {
+                        $selected = $member['role'] === $role_key ? " selected" : "";
+                        echo "<option value='" . $role_key . "'" . $selected . ">" . Html::clean($role_label) . "</option>";
+                    }
+                    echo "</select>";
+
+                    echo "<button type='button' class='btn btn-sm btn-outline-primary ml-1 scrumban-apply-role' data-member-id='" . (int)$member['id'] . "'>";
+                    echo "<i class='fas fa-save'></i>";
+                    echo "</button>";
+
+                    echo "<button type='button' class='btn btn-sm btn-outline-danger ml-1 scrumban-remove-member' data-member-id='" . (int)$member['id'] . "'>";
+                    echo "<i class='fas fa-user-minus'></i>";
+                    echo "</button>";
+                    echo "</div>";
+                } else {
+                    if ($member['users_id'] == $current_id) {
+                        echo "<span class='text-muted'>" . __('É você', 'scrumban') . "</span>";
+                    } else {
+                        echo "<span class='text-muted'>" . __('Sem permissão', 'scrumban') . "</span>";
+                    }
+                }
+
+                echo "</td>";
+                echo "</tr>";
+            }
         }
-        
+
+        echo "</tbody>";
         echo "</table>";
         echo "</div>";
+
+        if ($can_manage) {
+            self::showAddMemberModal($team_id);
+        }
     }
-    
-    /**
-     * Obter cor da prioridade
-     */
-    static function getPriorityColor($priority) {
-        $colors = [
-            'LOW' => 'success',
-            'NORMAL' => 'info',
-            'HIGH' => 'warning', 
-            'CRITICAL' => 'danger'
-        ];
-        return $colors[$priority] ?? 'secondary';
+
+    static function showAddMemberModal($team_id) {
+        echo "<div id='scrumbanAddMemberModal' class='modal' tabindex='-1' role='dialog' data-team-id='" . (int)$team_id . "' style='display:none;'>";
+        echo "  <div class='modal-dialog' role='document'>";
+        echo "    <div class='modal-content'>";
+        echo "      <div class='modal-header'>";
+        echo "        <h5 class='modal-title'><i class='fas fa-user-plus'></i> " . __('Adicionar membro à equipe', 'scrumban') . "</h5>";
+        echo "        <button type='button' class='close' data-dismiss='modal' aria-label='Close'><span aria-hidden='true'>&times;</span></button>";
+        echo "      </div>";
+        echo "      <div class='modal-body'>";
+        echo "        <form id='scrumbanAddMemberForm'>";
+        echo "          <input type='hidden' name='teams_id' value='" . (int)$team_id . "'>";
+        echo "          <div class='form-group'>";
+        echo "            <label>" . __('Usuário', 'scrumban') . "</label>";
+        User::dropdown([
+            'name'  => 'users_id',
+            'entity' => $_SESSION['glpiactive_entity'] ?? 0,
+            'right' => 'all'
+        ]);
+        echo "          </div>";
+        echo "          <div class='form-group'>";
+        echo "            <label>" . __('Papel', 'scrumban') . "</label>";
+        Dropdown::showFromArray('role', PluginScrumbanTeam::getRoleOptions(), ['value' => 'member']);
+        echo "          </div>";
+        echo "        </form>";
+        echo "      </div>";
+        echo "      <div class='modal-footer'>";
+        echo "        <button type='button' class='btn btn-secondary' data-dismiss='modal'>" . __('Cancelar') . "</button>";
+        echo "        <button type='button' class='btn btn-primary' data-action='scrumban-confirm-add-member'>" . __('Adicionar', 'scrumban') . "</button>";
+        echo "      </div>";
+        echo "    </div>";
+        echo "  </div>";
+        echo "</div>";
     }
-    
-    /**
-     * Obter nome do status
-     */
-    static function getStatusName($status) {
-        $statuses = [
-            'backlog' => __('Backlog', 'scrumban'),
-            'todo' => __('A Fazer', 'scrumban'),
-            'em-execucao' => __('Em Execução', 'scrumban'),
-            'review' => __('Review', 'scrumban'),
-            'done' => __('Concluído', 'scrumban')
-        ];
-        return $statuses[$status] ?? $status;
+
+    static function isUserInTeam($user_id, $team_id) {
+        return countElementsInTable('glpi_plugin_scrumban_team_members', [
+            'users_id' => (int)$user_id,
+            'teams_id' => (int)$team_id
+        ]) > 0;
     }
-    
-    /**
-     * Obter detalhes completos do card para modal
-     */
-    function getCardDetails() {
-        global $DB;
-        
-        if (!$this->fields['id']) {
+
+    static function addMemberToTeam($team_id, $user_id, $role) {
+        if (self::isUserInTeam($user_id, $team_id)) {
             return false;
         }
-        
-        // Dados básicos do card com informações dos usuários
-        $query = "SELECT c.*, 
-                         ua.realname as assigned_name, ua.firstname as assigned_firstname,
-                         ur.realname as requester_name, ur.firstname as requester_firstname,
-                         uc.realname as created_name, uc.firstname as created_firstname,
-                         s.name as sprint_name,
-                         b.name as board_name
-                  FROM glpi_plugin_scrumban_cards c
-                  LEFT JOIN glpi_users ua ON ua.id = c.users_id_assigned
-                  LEFT JOIN glpi_users ur ON ur.id = c.users_id_requester  
-                  LEFT JOIN glpi_users uc ON uc.id = c.users_id_created
-                  LEFT JOIN glpi_plugin_scrumban_sprints s ON s.id = c.sprint_id
-                  LEFT JOIN glpi_plugin_scrumban_boards b ON b.id = c.boards_id
-                  WHERE c.id = '" . $this->fields['id'] . "'";
-        
-        $result = $DB->query($query);
-        $card_data = $DB->fetchAssoc($result);
-        
-        // Obter comentários
-        $comments_query = "SELECT com.*, u.realname, u.firstname 
-                          FROM glpi_plugin_scrumban_comments com
-                          LEFT JOIN glpi_users u ON u.id = com.users_id
-                          WHERE com.cards_id = '" . $this->fields['id'] . "'
-                          ORDER BY com.date_creation ASC";
-        
-        $comments_result = $DB->query($comments_query);
-        $comments = [];
-        while ($comment = $DB->fetchAssoc($comments_result)) {
-            $comments[] = $comment;
-        }
-        
-        // Obter histórico
-        $history_query = "SELECT h.*, u.realname, u.firstname 
-                         FROM glpi_plugin_scrumban_history h
-                         LEFT JOIN glpi_users u ON u.id = h.users_id
-                         WHERE h.cards_id = '" . $this->fields['id'] . "'
-                         ORDER BY h.date_creation DESC";
-        
-        $history_result = $DB->query($history_query);
-        $history = [];
-        while ($hist = $DB->fetchAssoc($history_result)) {
-            $history[] = $hist;
-        }
-        
-        return [
-            'card' => $card_data,
-            'comments' => $comments,
-            'history' => $history
+
+        $member = new self();
+        $data   = [
+            'teams_id'      => (int)$team_id,
+            'users_id'      => (int)$user_id,
+            'role'          => $role,
+            'date_creation' => $_SESSION['glpi_currenttime'],
         ];
+
+        return (bool)$member->add($data);
     }
-    
-    /**
-     * Adicionar comentário ao card
-     */
-    function addComment($comment_text) {
-        global $DB;
-        
-        $comment_data = [
-            'cards_id' => $this->fields['id'],
-            'users_id' => Session::getLoginUserID(),
-            'comment' => $comment_text,
-            'date_creation' => $_SESSION['glpi_currenttime']
+
+    function removeMember() {
+        if (empty($this->fields['id'])) {
+            return false;
+        }
+
+        $team_id = (int)$this->fields['teams_id'];
+
+        if ($this->fields['role'] === 'admin') {
+            $admins = countElementsInTable('glpi_plugin_scrumban_team_members', [
+                'teams_id' => $team_id,
+                'role'     => 'admin'
+            ]);
+
+            if ($admins <= 1) {
+                return false;
+            }
+        }
+
+        return $this->delete(['id' => $this->fields['id']]);
+    }
+
+    function changeRole($new_role) {
+        if (empty($this->fields['id'])) {
+            return false;
+        }
+
+        $team_id = (int)$this->fields['teams_id'];
+
+        if ($this->fields['role'] === 'admin' && $new_role !== 'admin') {
+            global $DB;
+
+            $query = "SELECT COUNT(*) AS nb\n                      FROM " . $DB->quoteName('glpi_plugin_scrumban_team_members') . "\n                      WHERE teams_id = '" . $team_id . "'\n                        AND role = 'admin'\n                        AND id <> '" . (int)$this->fields['id'] . "'";
+            $result = $DB->query($query);
+            $data   = $DB->fetchAssoc($result);
+
+            if ((int)$data['nb'] === 0) {
+                return false;
+            }
+        }
+
+        return $this->update([
+            'id'   => $this->fields['id'],
+            'role' => $new_role
+        ]);
+    }
+
+    static function getRoleBadge($role) {
+        $labels = PluginScrumbanTeam::getRoleOptions();
+        $colors = [
+            'member' => 'secondary',
+            'lead'   => 'info',
+            'admin'  => 'success'
         ];
-        
-        $result = $DB->insert('glpi_plugin_scrumban_comments', $comment_data);
-        
-        if ($result) {
-            // Log da adição do comentário
-            $this->logHistory('comment', 'comment', '', $comment_text);
-            return true;
-        }
-        
-        return false;
+
+        $label = $labels[$role] ?? $role;
+        $color = $colors[$role] ?? 'secondary';
+
+        return "<span class='badge badge-$color'>" . Html::clean($label) . "</span>";
     }
-    
-    /**
-     * Atualizar status do card
-     */
-    function updateStatus($new_status) {
-        $old_status = $this->fields['status'];
-        
-        if ($this->update(['id' => $this->fields['id'], 'status' => $new_status])) {
-            // Se movido para "done", definir data de conclusão
-            if ($new_status == 'done' && !$this->fields['date_completion']) {
-                $this->update(['id' => $this->fields['id'], 'date_completion' => $_SESSION['glpi_currenttime']]);
-            }
-            
-            $this->logHistory('status_change', 'status', $old_status, $new_status);
-            return true;
+
+    function prepareInputForAdd($input) {
+        if (!isset($input['date_creation'])) {
+            $input['date_creation'] = $_SESSION['glpi_currenttime'];
         }
-        
-        return false;
-    }
-    
-    /**
-     * Renderizar modal detalhado do card
-     */
-    function renderCardModal() {
-        $details = $this->getCardDetails();
-        if (!$details) {
-            return "Erro ao carregar detalhes do card.";
-        }
-        
-        $card = $details['card'];
-        $comments = $details['comments'];
-        $history = $details['history'];
-        
-        $html = "<div class='container-fluid'>";
-        
-        // Header do Card
-        $html .= "<div class='row mb-3'>";
-        $html .= "<div class='col-md-8'>";
-        $html .= "<h4>#" . $card['id'] . " (" . $card['board_name'] . ")</h4>";
-        $html .= "<h5>" . $card['name'] . "</h5>";
-        $html .= "</div>";
-        $html .= "<div class='col-md-4 text-right'>";
-        $html .= "<span class='badge badge-" . self::getPriorityColor($card['priority']) . " mr-2'>" . $card['priority'] . "</span>";
-        $html .= "<span class='badge badge-info'>" . ucfirst($card['type']) . "</span>";
-        $html .= "</div>";
-        $html .= "</div>";
-        
-        // Informações Principais
-        $html .= "<div class='row mb-4'>";
-        $html .= "<div class='col-md-6'>";
-        $html .= "<table class='table table-sm'>";
-        $html .= "<tr><td><strong>Responsável:</strong></td><td>" . ($card['assigned_firstname'] ? $card['assigned_firstname'] . " " . $card['assigned_name'] : 'Não informado') . "</td></tr>";
-        $html .= "<tr><td><strong>Solicitante:</strong></td><td>" . ($card['requester_firstname'] ? $card['requester_firstname'] . " " . $card['requester_name'] : 'Não informado') . "</td></tr>";
-        $html .= "<tr><td><strong>Story Points:</strong></td><td>" . ($card['story_points'] ?: 'Não informado') . "</td></tr>";
-        $html .= "</table>";
-        $html .= "</div>";
-        $html .= "<div class='col-md-6'>";
-        $html .= "<table class='table table-sm'>";
-        $html .= "<tr><td><strong>Criado em:</strong></td><td>" . Html::convDateTime($card['date_creation']) . "</td></tr>";
-        $html .= "<tr><td><strong>Planejado:</strong></td><td>" . ($card['date_planned'] ? Html::convDateTime($card['date_planned']) : 'Não informado') . "</td></tr>";
-        $html .= "<tr><td><strong>Conclusão:</strong></td><td>" . ($card['date_completion'] ? Html::convDateTime($card['date_completion']) : 'Será preenchida quando finalizado') . "</td></tr>";
-        $html .= "</table>";
-        $html .= "</div>";
-        $html .= "</div>";
-        
-        // Sprint e Labels
-        if ($card['sprint_name'] || $card['labels']) {
-            $html .= "<div class='row mb-3'>";
-            if ($card['sprint_name']) {
-                $html .= "<div class='col-md-6'><strong>Sprint:</strong> " . $card['sprint_name'] . "</div>";
-            }
-            if ($card['labels']) {
-                $html .= "<div class='col-md-6'><strong>Labels:</strong> ";
-                $labels = explode(',', $card['labels']);
-                foreach ($labels as $label) {
-                    $html .= "<span class='badge badge-secondary mr-1'>" . trim($label) . "</span>";
-                }
-                $html .= "</div>";
-            }
-            $html .= "</div>";
-        }
-        
-        // Seção de Desenvolvimento
-        if ($card['branch'] || $card['pull_request'] || $card['commits']) {
-            $html .= "<div class='card mb-3'>";
-            $html .= "<div class='card-header'><h6>Desenvolvimento</h6></div>";
-            $html .= "<div class='card-body'>";
-            if ($card['branch']) {
-                $html .= "<p><strong>Branch:</strong> <code>" . $card['branch'] . "</code></p>";
-            }
-            if ($card['pull_request']) {
-                $html .= "<p><strong>PR:</strong> <code>" . $card['pull_request'] . "</code></p>";
-            }
-            if ($card['commits']) {
-                $html .= "<p><strong>Commits:</strong><br><pre>" . $card['commits'] . "</pre></p>";
-            }
-            $html .= "</div>";
-            $html .= "</div>";
-        }
-        
-        // Critérios (DoR/DoD)
-        $html .= "<div class='row mb-3'>";
-        $html .= "<div class='col-md-6'>";
-        $html .= "<strong>DoR (" . $card['dor_percentage'] . "%):</strong>";
-        $html .= "<div class='progress mt-1'>";
-        $html .= "<div class='progress-bar' style='width: " . $card['dor_percentage'] . "%'></div>";
-        $html .= "</div>";
-        $html .= "</div>";
-        $html .= "<div class='col-md-6'>";
-        $html .= "<strong>DoD (" . $card['dod_percentage'] . "%):</strong>";
-        $html .= "<div class='progress mt-1'>";
-        $html .= "<div class='progress-bar bg-success' style='width: " . $card['dod_percentage'] . "%'></div>";
-        $html .= "</div>";
-        $html .= "</div>";
-        $html .= "</div>";
-        
-        // Critérios de Aceitação
-        if ($card['acceptance_criteria']) {
-            $html .= "<div class='card mb-3'>";
-            $html .= "<div class='card-header'><h6>Critérios de Aceitação</h6></div>";
-            $html .= "<div class='card-body'>";
-            $html .= "<pre>" . $card['acceptance_criteria'] . "</pre>";
-            $html .= "</div>";
-            $html .= "</div>";
-        }
-        
-        // Cenários de Teste
-        if ($card['test_scenarios']) {
-            $html .= "<div class='card mb-3'>";
-            $html .= "<div class='card-header'><h6>Cenários de Teste</h6></div>";
-            $html .= "<div class='card-body'>";
-            $html .= "<pre>" . $card['test_scenarios'] . "</pre>";
-            $html .= "</div>";
-            $html .= "</div>";
-        }
-        
-        // Comentários
-        $html .= "<div class='card mb-3'>";
-        $html .= "<div class='card-header'><h6>Comentários (" . count($comments) . ")</h6></div>";
-        $html .= "<div class='card-body'>";
-        
-        foreach ($comments as $comment) {
-            $html .= "<div class='border-bottom mb-2 pb-2'>";
-            $html .= "<div class='d-flex justify-content-between'>";
-            $html .= "<strong>" . $comment['firstname'] . " " . $comment['realname'] . "</strong>";
-            $html .= "<small class='text-muted'>" . Html::convDateTime($comment['date_creation']) . "</small>";
-            $html .= "</div>";
-            $html .= "<p class='mt-1'>" . nl2br($comment['comment']) . "</p>";
-            $html .= "</div>";
-        }
-        
-        // Formulário para novo comentário
-        $html .= "<form id='addCommentForm' class='mt-3'>";
-        $html .= "<div class='form-group'>";
-        $html .= "<textarea class='form-control' name='comment' rows='3' placeholder='Escreva seu comentário...'></textarea>";
-        $html .= "</div>";
-        $html .= "<button type='submit' class='btn btn-primary'>Adicionar Comentário</button>";
-        $html .= "<input type='hidden' name='card_id' value='" . $card['id'] . "'>";
-        $html .= "</form>";
-        
-        $html .= "</div>";
-        $html .= "</div>";
-        
-        // Histórico
-        $html .= "<div class='card'>";
-        $html .= "<div class='card-header'><h6>Histórico do Card</h6></div>";
-        $html .= "<div class='card-body'>";
-        
-        foreach ($history as $hist) {
-            $icon = $this->getHistoryIcon($hist['action']);
-            $description = $this->getHistoryDescription($hist);
-            
-            $html .= "<div class='d-flex align-items-center mb-2'>";
-            $html .= "<i class='" . $icon . " mr-2'></i>";
-            $html .= "<div class='flex-grow-1'>";
-            $html .= "<strong>" . $description . "</strong><br>";
-            $html .= "<small class='text-muted'>" . $hist['firstname'] . " " . $hist['realname'] . " • " . Html::convDateTime($hist['date_creation']) . "</small>";
-            $html .= "</div>";
-            $html .= "</div>";
-        }
-        
-        $html .= "</div>";
-        $html .= "</div>";
-        
-        $html .= "</div>";
-        
-        return $html;
-    }
-    
-    /**
-     * Obter ícone para o histórico
-     */
-    private function getHistoryIcon($action) {
-        $icons = [
-            'create' => 'fas fa-plus-circle text-success',
-            'update' => 'fas fa-edit text-primary',
-            'status_change' => 'fas fa-exchange-alt text-warning',
-            'comment' => 'fas fa-comment text-info'
-        ];
-        
-        return $icons[$action] ?? 'fas fa-circle';
-    }
-    
-    /**
-     * Obter descrição para o histórico
-     */
-    private function getHistoryDescription($history) {
-        switch ($history['action']) {
-            case 'create':
-                return "Card criado";
-            case 'status_change':
-                return "Status alterado de \"" . self::getStatusName($history['old_value']) . "\" para \"" . self::getStatusName($history['new_value']) . "\"";
-            case 'comment':
-                return "Comentário adicionado";
-            case 'update':
-                $field_names = [
-                    'name' => 'Nome',
-                    'description' => 'Descrição',
-                    'priority' => 'Prioridade',
-                    'users_id_assigned' => 'Responsável',
-                    'story_points' => 'Story Points',
-                    'branch' => 'Branch',
-                    'pull_request' => 'Pull Request'
-                ];
-                $field_name = $field_names[$history['field']] ?? $history['field'];
-                return "Campo \"$field_name\" alterado";
-            default:
-                return "Ação: " . $history['action'];
-        }
+
+        return parent::prepareInputForAdd($input);
     }
 }
