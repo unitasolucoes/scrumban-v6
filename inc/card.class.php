@@ -322,12 +322,50 @@ class PluginScrumbanCard extends CommonDBTM {
         $colors = [
             'LOW' => 'success',
             'NORMAL' => 'info',
-            'HIGH' => 'warning', 
+            'HIGH' => 'warning',
             'CRITICAL' => 'danger'
         ];
         return $colors[$priority] ?? 'secondary';
     }
-    
+
+    static function getTypeBadge($type) {
+        $types = [
+            'feature' => __('Funcionalidade', 'scrumban'),
+            'bug'      => __('Bug', 'scrumban'),
+            'task'     => __('Tarefa', 'scrumban'),
+            'story'    => __('História', 'scrumban')
+        ];
+
+        $label = $types[$type] ?? ucfirst($type);
+        return "<span class='badge badge-pill badge-info'>" . Html::clean($label) . "</span>";
+    }
+
+    static function getPriorityBadge($priority) {
+        $labels = [
+            'LOW'      => __('Baixa', 'scrumban'),
+            'NORMAL'   => __('Normal', 'scrumban'),
+            'HIGH'     => __('Alta', 'scrumban'),
+            'CRITICAL' => __('Crítica', 'scrumban')
+        ];
+
+        $label = $labels[$priority] ?? strtoupper($priority);
+        $color = self::getPriorityColor($priority);
+        return "<span class='badge badge-pill badge-" . $color . "'>" . Html::clean($label) . "</span>";
+    }
+
+    static function getStatusBadge($status) {
+        $map = [
+            'backlog'      => ['label' => __('Backlog', 'scrumban'), 'class' => 'secondary'],
+            'todo'         => ['label' => __('A Fazer', 'scrumban'), 'class' => 'info'],
+            'em-execucao'  => ['label' => __('Em Execução', 'scrumban'), 'class' => 'primary'],
+            'review'       => ['label' => __('Review', 'scrumban'), 'class' => 'warning'],
+            'done'         => ['label' => __('Concluído', 'scrumban'), 'class' => 'success']
+        ];
+
+        $info = $map[$status] ?? ['label' => $status, 'class' => 'secondary'];
+        return "<span class='badge badge-pill badge-" . $info['class'] . "'>" . Html::clean($info['label']) . "</span>";
+    }
+
     /**
      * Obter nome do status
      */
@@ -452,208 +490,353 @@ class PluginScrumbanCard extends CommonDBTM {
     function renderCardModal() {
         $details = $this->getCardDetails();
         if (!$details) {
-            return "Erro ao carregar detalhes do card.";
+            return __('Erro ao carregar detalhes do card', 'scrumban');
         }
-        
-        $card = $details['card'];
-        $comments = $details['comments'];
-        $history = $details['history'];
-        
-        $html = "<div class='container-fluid'>";
-        
-        // Header do Card
-        $html .= "<div class='row mb-3'>";
-        $html .= "<div class='col-md-8'>";
-        $html .= "<h4>#" . $card['id'] . " (" . $card['board_name'] . ")</h4>";
-        $html .= "<h5>" . $card['name'] . "</h5>";
+
+        $card      = $details['card'];
+        $comments  = $details['comments'];
+        $history   = $details['history'];
+        $now       = strtotime($_SESSION['glpi_currenttime'] ?? 'now');
+        $assigned  = $this->formatPersonName($card['assigned_firstname'], $card['assigned_name']);
+        $requester = $this->formatPersonName($card['requester_firstname'], $card['requester_name']);
+        $story     = $card['story_points'] !== null && $card['story_points'] !== '' ? $card['story_points'] : __('Não informado', 'scrumban');
+        $planned   = $card['date_planned'] ? Html::convDateTime($card['date_planned']) : __('Não informado', 'scrumban');
+        $planned_ts = $card['date_planned'] ? strtotime($card['date_planned']) : null;
+        $completion = $card['date_completion'] ? Html::convDateTime($card['date_completion']) : __('Não informado', 'scrumban');
+        $attachments_count = countElementsInTable('glpi_documents_items', [
+            'itemtype' => 'PluginScrumbanCard',
+            'items_id' => (int)$card['id']
+        ]);
+
+        $html = "<div class='card-modal-container'>";
+
+        // Header
+        $html .= "<div class='card-modal-header'>";
+        $html .= "  <div class='card-id-title'>";
+        $html .= "    <h3>#" . (int)$card['id'] . ' ' . Html::clean($card['name']) . "</h3>";
+        $html .= "    <span class='card-board-name'>" . Html::clean($card['board_name']) . "</span>";
+        $html .= "  </div>";
+        $html .= "  <div class='card-badges'>";
+        $html .= self::getTypeBadge($card['type']);
+        $html .= self::getPriorityBadge($card['priority']);
+        $html .= self::getStatusBadge($card['status']);
+        $html .= "  </div>";
         $html .= "</div>";
-        $html .= "<div class='col-md-4 text-right'>";
-        $html .= "<span class='badge badge-" . self::getPriorityColor($card['priority']) . " mr-2'>" . $card['priority'] . "</span>";
-        $html .= "<span class='badge badge-info'>" . ucfirst($card['type']) . "</span>";
-        $html .= "</div>";
-        $html .= "</div>";
-        
-        // Informações Principais
-        $html .= "<div class='row mb-4'>";
-        $html .= "<div class='col-md-6'>";
-        $html .= "<table class='table table-sm'>";
-        $html .= "<tr><td><strong>Responsável:</strong></td><td>" . ($card['assigned_firstname'] ? $card['assigned_firstname'] . " " . $card['assigned_name'] : 'Não informado') . "</td></tr>";
-        $html .= "<tr><td><strong>Solicitante:</strong></td><td>" . ($card['requester_firstname'] ? $card['requester_firstname'] . " " . $card['requester_name'] : 'Não informado') . "</td></tr>";
-        $html .= "<tr><td><strong>Story Points:</strong></td><td>" . ($card['story_points'] ?: 'Não informado') . "</td></tr>";
-        $html .= "</table>";
-        $html .= "</div>";
-        $html .= "<div class='col-md-6'>";
-        $html .= "<table class='table table-sm'>";
-        $html .= "<tr><td><strong>Criado em:</strong></td><td>" . Html::convDateTime($card['date_creation']) . "</td></tr>";
-        $html .= "<tr><td><strong>Planejado:</strong></td><td>" . ($card['date_planned'] ? Html::convDateTime($card['date_planned']) : 'Não informado') . "</td></tr>";
-        $html .= "<tr><td><strong>Conclusão:</strong></td><td>" . ($card['date_completion'] ? Html::convDateTime($card['date_completion']) : 'Será preenchida quando finalizado') . "</td></tr>";
-        $html .= "</table>";
-        $html .= "</div>";
-        $html .= "</div>";
-        
-        // Sprint e Labels
-        if ($card['sprint_name'] || $card['labels']) {
-            $html .= "<div class='row mb-3'>";
-            if ($card['sprint_name']) {
-                $html .= "<div class='col-md-6'><strong>Sprint:</strong> " . $card['sprint_name'] . "</div>";
-            }
-            if ($card['labels']) {
-                $html .= "<div class='col-md-6'><strong>Labels:</strong> ";
-                $labels = explode(',', $card['labels']);
-                foreach ($labels as $label) {
-                    $html .= "<span class='badge badge-secondary mr-1'>" . trim($label) . "</span>";
-                }
-                $html .= "</div>";
-            }
-            $html .= "</div>";
+
+        // Informações principais
+        $html .= "<div class='card-section two-columns'>";
+        $html .= "  <div class='column'>";
+        $html .= "    <table class='card-info-table'>";
+        $html .= "      <tr><th>" . __('Responsável', 'scrumban') . ":</th><td>" . Html::clean($assigned) . "</td></tr>";
+        $html .= "      <tr><th>" . __('Solicitante', 'scrumban') . ":</th><td>" . Html::clean($requester) . "</td></tr>";
+        $html .= "      <tr><th>" . __('Story Points', 'scrumban') . ":</th><td>" . Html::clean($story) . "</td></tr>";
+        $html .= "    </table>";
+        $html .= "  </div>";
+        $html .= "  <div class='column'>";
+        $html .= "    <table class='card-info-table'>";
+        $html .= "      <tr><th>" . __('Criado em', 'scrumban') . ":</th><td>" . Html::convDateTime($card['date_creation']) . "</td></tr>";
+        $html .= "      <tr><th>" . __('Data planejada', 'scrumban') . ":</th><td>" . $planned;
+        if ($planned_ts && $planned_ts < $now && $card['status'] !== 'done') {
+            $html .= " <span class='badge badge-danger'>" . __('Atrasado', 'scrumban') . "</span>";
         }
-        
-        // Seção de Desenvolvimento
+        $html .= "</td></tr>";
+        $html .= "      <tr><th>" . __('Data de conclusão', 'scrumban') . ":</th><td>" . $completion . "</td></tr>";
+        $html .= "    </table>";
+        $html .= "  </div>";
+        $html .= "</div>";
+
+        // Informações adicionais
+        $labels = $this->prepareLabels($card['labels']);
+        $html .= "<div class='card-section'>";
+        $html .= "  <div class='card-meta-row'><strong>" . __('Sprint', 'scrumban') . ":</strong> " . Html::clean($card['sprint_name'] ?: __('Sem sprint', 'scrumban')) . "</div>";
+        $html .= "  <div class='card-meta-row'><strong>" . __('Labels', 'scrumban') . ":</strong> " . ($labels ?: "<span class='text-muted'>" . __('Nenhuma label', 'scrumban') . "</span>") . "</div>";
+        $html .= "  <div class='card-meta-row card-attachments'><strong>" . sprintf(__('Anexos (%d)', 'scrumban'), $attachments_count) . ":</strong>";
+        $html .= "    <button type='button' class='btn btn-sm btn-outline-primary ml-2' data-action='scrumban-add-attachment'>" . __('Adicionar anexos', 'scrumban') . "</button>";
+        $html .= "  </div>";
+        $html .= "</div>";
+
+        // Desenvolvimento
+        $html .= "<div class='card-section'>";
+        $html .= "  <h4>" . __('Desenvolvimento', 'scrumban') . "</h4>";
         if ($card['branch'] || $card['pull_request'] || $card['commits']) {
-            $html .= "<div class='card mb-3'>";
-            $html .= "<div class='card-header'><h6>Desenvolvimento</h6></div>";
-            $html .= "<div class='card-body'>";
             if ($card['branch']) {
-                $html .= "<p><strong>Branch:</strong> <code>" . $card['branch'] . "</code></p>";
+                $html .= "  <p><strong>" . __('Branch', 'scrumban') . ":</strong> <code>" . Html::clean($card['branch']) . "</code></p>";
             }
             if ($card['pull_request']) {
-                $html .= "<p><strong>PR:</strong> <code>" . $card['pull_request'] . "</code></p>";
+                $html .= "  <p><strong>PR:</strong> <code>" . Html::clean($card['pull_request']) . "</code></p>";
             }
             if ($card['commits']) {
-                $html .= "<p><strong>Commits:</strong><br><pre>" . $card['commits'] . "</pre></p>";
+                $html .= "  <div class='form-group'>";
+                $html .= "    <label>" . __('Commits', 'scrumban') . "</label>";
+                $html .= "    <textarea class='form-control' rows='4' readonly>" . Html::clean($card['commits']) . "</textarea>";
+                $html .= "  </div>";
             }
-            $html .= "</div>";
-            $html .= "</div>";
+        } else {
+            $html .= "  <p class='text-muted'>" . __('Nenhuma informação de desenvolvimento registrada', 'scrumban') . "</p>";
         }
-        
+        $html .= "</div>";
+
         // Critérios (DoR/DoD)
-        $html .= "<div class='row mb-3'>";
-        $html .= "<div class='col-md-6'>";
-        $html .= "<strong>DoR (" . $card['dor_percentage'] . "%):</strong>";
-        $html .= "<div class='progress mt-1'>";
-        $html .= "<div class='progress-bar' style='width: " . $card['dor_percentage'] . "%'></div>";
+        $dor = (int)($card['dor_percentage'] ?? 0);
+        $dod = (int)($card['dod_percentage'] ?? 0);
+        $html .= "<div class='card-section two-columns'>";
+        $html .= "  <div class='column'>";
+        $html .= "    <strong>DoR</strong><span class='badge badge-light ml-1'>" . $dor . "%</span>";
+        $html .= "    <div class='progress mt-2'><div class='progress-bar' style='width: " . $dor . "%'></div></div>";
+        $html .= "  </div>";
+        $html .= "  <div class='column'>";
+        $html .= "    <strong>DoD</strong><span class='badge badge-light ml-1'>" . $dod . "%</span>";
+        $html .= "    <div class='progress mt-2'><div class='progress-bar bg-success' style='width: " . $dod . "%'></div></div>";
+        $html .= "  </div>";
         $html .= "</div>";
-        $html .= "</div>";
-        $html .= "<div class='col-md-6'>";
-        $html .= "<strong>DoD (" . $card['dod_percentage'] . "%):</strong>";
-        $html .= "<div class='progress mt-1'>";
-        $html .= "<div class='progress-bar bg-success' style='width: " . $card['dod_percentage'] . "%'></div>";
-        $html .= "</div>";
-        $html .= "</div>";
-        $html .= "</div>";
-        
-        // Critérios de Aceitação
-        if ($card['acceptance_criteria']) {
-            $html .= "<div class='card mb-3'>";
-            $html .= "<div class='card-header'><h6>Critérios de Aceitação</h6></div>";
-            $html .= "<div class='card-body'>";
-            $html .= "<pre>" . $card['acceptance_criteria'] . "</pre>";
-            $html .= "</div>";
-            $html .= "</div>";
+
+        // Critérios de aceitação
+        $html .= "<div class='card-section'>";
+        $html .= "  <h4>" . __('Critérios de aceitação', 'scrumban') . "</h4>";
+        $criteria = $this->parseChecklist($card['acceptance_criteria']);
+        if ($criteria) {
+            $html .= "  <ul class='card-checklist'>";
+            foreach ($criteria as $criterion) {
+                $html .= "    <li><label><input type='checkbox' disabled" . ($criterion['checked'] ? ' checked' : '') . "> " . Html::clean($criterion['label']) . "</label></li>";
+            }
+            $html .= "  </ul>";
+        } else {
+            $html .= "  <p class='text-muted'>" . __('Nenhum critério cadastrado', 'scrumban') . "</p>";
         }
-        
-        // Cenários de Teste
-        if ($card['test_scenarios']) {
-            $html .= "<div class='card mb-3'>";
-            $html .= "<div class='card-header'><h6>Cenários de Teste</h6></div>";
-            $html .= "<div class='card-body'>";
-            $html .= "<pre>" . $card['test_scenarios'] . "</pre>";
-            $html .= "</div>";
-            $html .= "</div>";
+        $html .= "  <button type='button' class='btn btn-sm btn-outline-primary mt-2' data-action='scrumban-add-acceptance'>" . __('Adicionar critério', 'scrumban') . "</button>";
+        $html .= "</div>";
+
+        // Cenários de teste
+        $html .= "<div class='card-section'>";
+        $html .= "  <h4>" . __('Cenários de teste', 'scrumban') . "</h4>";
+        $scenarios = $this->parseScenarios($card['test_scenarios']);
+        if ($scenarios) {
+            $html .= "  <ol class='card-scenarios'>";
+            foreach ($scenarios as $scenario) {
+                $html .= "    <li><span class='scenario-name'>" . Html::clean($scenario['name']) . "</span> " . $scenario['badge'] . "</li>";
+            }
+            $html .= "  </ol>";
+        } else {
+            $html .= "  <p class='text-muted'>" . __('Nenhum cenário de teste registrado', 'scrumban') . "</p>";
         }
-        
+        $html .= "  <button type='button' class='btn btn-sm btn-outline-primary mt-2' data-action='scrumban-add-scenario'>" . __('Adicionar cenário de teste', 'scrumban') . "</button>";
+        $html .= "</div>";
+
         // Comentários
-        $html .= "<div class='card mb-3'>";
-        $html .= "<div class='card-header'><h6>Comentários (" . count($comments) . ")</h6></div>";
-        $html .= "<div class='card-body'>";
-        
-        foreach ($comments as $comment) {
-            $html .= "<div class='border-bottom mb-2 pb-2'>";
-            $html .= "<div class='d-flex justify-content-between'>";
-            $html .= "<strong>" . $comment['firstname'] . " " . $comment['realname'] . "</strong>";
-            $html .= "<small class='text-muted'>" . Html::convDateTime($comment['date_creation']) . "</small>";
-            $html .= "</div>";
-            $html .= "<p class='mt-1'>" . nl2br($comment['comment']) . "</p>";
-            $html .= "</div>";
+        $html .= "<div class='card-section'>";
+        $html .= "  <h4>" . sprintf(__('Comentários (%d)', 'scrumban'), count($comments)) . "</h4>";
+        if ($comments) {
+            $html .= "  <div class='card-comments'>";
+            foreach ($comments as $comment) {
+                $name = $this->formatPersonName($comment['firstname'], $comment['realname']);
+                $initials = $this->getInitials($comment['firstname'], $comment['realname']);
+                $html .= "    <div class='card-comment'>";
+                $html .= "      <div class='comment-avatar'>" . Html::clean($initials) . "</div>";
+                $html .= "      <div class='comment-body'>";
+                $html .= "        <div class='comment-header'><strong>" . Html::clean($name) . "</strong><span>" . Html::convDateTime($comment['date_creation']) . "</span></div>";
+                $html .= "        <div class='comment-text'>" . nl2br(Html::clean($comment['comment'])) . "</div>";
+                $html .= "      </div>";
+                $html .= "    </div>";
+            }
+            $html .= "  </div>";
+        } else {
+            $html .= "  <p class='text-muted'>" . __('Nenhum comentário até o momento', 'scrumban') . "</p>";
         }
-        
-        // Formulário para novo comentário
-        $html .= "<form id='addCommentForm' class='mt-3'>";
-        $html .= "<div class='form-group'>";
-        $html .= "<textarea class='form-control' name='comment' rows='3' placeholder='Escreva seu comentário...'></textarea>";
+
+        $html .= "  <form id='addCommentForm' class='card-comment-form mt-3'>";
+        $html .= "    <textarea class='form-control' name='comment' rows='3' placeholder='" . __('Escreva seu comentário...', 'scrumban') . "'></textarea>";
+        $html .= "    <input type='hidden' name='card_id' value='" . (int)$card['id'] . "'>";
+        $html .= "    <div class='text-right mt-2'>";
+        $html .= "      <button type='submit' class='btn btn-primary'>" . __('Adicionar comentário', 'scrumban') . "</button>";
+        $html .= "    </div>";
+        $html .= "  </form>";
         $html .= "</div>";
-        $html .= "<button type='submit' class='btn btn-primary'>Adicionar Comentário</button>";
-        $html .= "<input type='hidden' name='card_id' value='" . $card['id'] . "'>";
-        $html .= "</form>";
-        
-        $html .= "</div>";
-        $html .= "</div>";
-        
+
         // Histórico
-        $html .= "<div class='card'>";
-        $html .= "<div class='card-header'><h6>Histórico do Card</h6></div>";
-        $html .= "<div class='card-body'>";
-        
-        foreach ($history as $hist) {
-            $icon = $this->getHistoryIcon($hist['action']);
-            $description = $this->getHistoryDescription($hist);
-            
-            $html .= "<div class='d-flex align-items-center mb-2'>";
-            $html .= "<i class='" . $icon . " mr-2'></i>";
-            $html .= "<div class='flex-grow-1'>";
-            $html .= "<strong>" . $description . "</strong><br>";
-            $html .= "<small class='text-muted'>" . $hist['firstname'] . " " . $hist['realname'] . " • " . Html::convDateTime($hist['date_creation']) . "</small>";
-            $html .= "</div>";
-            $html .= "</div>";
+        $html .= "<div class='card-section'>";
+        $html .= "  <h4>" . __('Histórico', 'scrumban') . "</h4>";
+        if ($history) {
+            $html .= "  <div class='card-timeline'>";
+            foreach ($history as $hist) {
+                $emoji = $this->getHistoryEmoji($hist['action']);
+                $description = $this->getHistoryDescription($hist);
+                $actor = $this->formatPersonName($hist['firstname'], $hist['realname']);
+                $html .= "    <div class='timeline-entry'>";
+                $html .= "      <div class='timeline-icon'>" . Html::clean($emoji) . "</div>";
+                $html .= "      <div class='timeline-body'>";
+                $html .= "        <div class='timeline-title'>" . Html::clean($description) . "</div>";
+                $html .= "        <div class='timeline-meta'>" . Html::clean($actor) . " • " . Html::convDateTime($hist['date_creation']) . "</div>";
+                $html .= "      </div>";
+                $html .= "    </div>";
+            }
+            $html .= "  </div>";
+        } else {
+            $html .= "  <p class='text-muted'>" . __('Nenhum histórico registrado', 'scrumban') . "</p>";
         }
-        
         $html .= "</div>";
+
         $html .= "</div>";
-        
-        $html .= "</div>";
-        
+
         return $html;
     }
-    
-    /**
-     * Obter ícone para o histórico
-     */
-    private function getHistoryIcon($action) {
-        $icons = [
-            'create' => 'fas fa-plus-circle text-success',
-            'update' => 'fas fa-edit text-primary',
-            'status_change' => 'fas fa-exchange-alt text-warning',
-            'comment' => 'fas fa-comment text-info'
-        ];
-        
-        return $icons[$action] ?? 'fas fa-circle';
+
+    private function formatPersonName($firstname, $lastname) {
+        $firstname = trim((string)$firstname);
+        $lastname  = trim((string)$lastname);
+
+        if ($firstname === '' && $lastname === '') {
+            return __('Não informado', 'scrumban');
+        }
+
+        return trim($firstname . ' ' . $lastname);
     }
-    
-    /**
-     * Obter descrição para o histórico
-     */
+
+    private function prepareLabels($labels) {
+        if (!$labels) {
+            return '';
+        }
+
+        $parts = array_filter(array_map('trim', preg_split('/[,;]+/', $labels)));
+        if (!$parts) {
+            return '';
+        }
+
+        $html = '';
+        foreach ($parts as $label) {
+            $html .= "<span class='badge badge-secondary mr-1'>" . Html::clean($label) . "</span>";
+        }
+
+        return $html;
+    }
+
+    private function parseChecklist($text) {
+        if (!$text) {
+            return [];
+        }
+
+        $items = [];
+        foreach (preg_split('/\r?\n/', $text) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $checked = false;
+            if (preg_match('/^\[(x|✔)\]\s*(.+)$/i', $line, $matches)) {
+                $checked = true;
+                $label   = $matches[2];
+            } elseif (preg_match('/^\[\s?\]\s*(.+)$/', $line, $matches)) {
+                $label = $matches[1];
+            } else {
+                $label = $line;
+            }
+
+            $items[] = ['label' => $label, 'checked' => $checked];
+        }
+
+        return $items;
+    }
+
+    private function parseScenarios($text) {
+        if (!$text) {
+            return [];
+        }
+
+        $scenarios = [];
+        foreach (preg_split('/\r?\n/', $text) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $status = 'pendente';
+            $name   = $line;
+
+            if (strpos($line, '|') !== false) {
+                [$name, $status] = array_map('trim', explode('|', $line, 2));
+            } elseif (strpos($line, '-') !== false) {
+                [$name, $status] = array_map('trim', explode('-', $line, 2));
+            }
+
+            $status_key = strtolower($status);
+            $badge = $this->getScenarioBadge($status_key);
+
+            $scenarios[] = [
+                'name'  => $name,
+                'badge' => $badge
+            ];
+        }
+
+        return $scenarios;
+    }
+
+    private function getScenarioBadge($status) {
+        $map = [
+            'passou'   => ['label' => __('Passou', 'scrumban'), 'class' => 'success'],
+            'aprovado' => ['label' => __('Passou', 'scrumban'), 'class' => 'success'],
+            'falhou'   => ['label' => __('Falhou', 'scrumban'), 'class' => 'danger'],
+            'erro'     => ['label' => __('Falhou', 'scrumban'), 'class' => 'danger'],
+            'pendente' => ['label' => __('Pendente', 'scrumban'), 'class' => 'warning'],
+        ];
+
+        $info = $map[$status] ?? ['label' => ucfirst($status ?: __('Pendente', 'scrumban')), 'class' => 'secondary'];
+        return "<span class='badge badge-" . $info['class'] . "'>" . Html::clean($info['label']) . "</span>";
+    }
+
+    private function getInitials($firstname, $lastname) {
+        $firstname = trim((string)$firstname);
+        $lastname  = trim((string)$lastname);
+
+        $initials = '';
+        if ($firstname !== '') {
+            $initials .= mb_substr($firstname, 0, 1);
+        }
+        if ($lastname !== '') {
+            $initials .= mb_substr($lastname, 0, 1);
+        }
+
+        return $initials !== '' ? strtoupper($initials) : '??';
+    }
+
+    private function getHistoryEmoji($action) {
+        $map = [
+            'create'        => '🎯',
+            'status_change' => '📋',
+            'comment'       => '💬',
+            'update'        => '✏️',
+            'pull_request'  => '✏️',
+            'branch'        => '✏️'
+        ];
+
+        return $map[$action] ?? '⬤';
+    }
+
     private function getHistoryDescription($history) {
         switch ($history['action']) {
             case 'create':
-                return "Card criado";
+                return __('Card criado', 'scrumban');
             case 'status_change':
-                return "Status alterado de \"" . self::getStatusName($history['old_value']) . "\" para \"" . self::getStatusName($history['new_value']) . "\"";
+                return sprintf(__('Status alterado de "%1$s" para "%2$s"', 'scrumban'), self::getStatusName($history['old_value']), self::getStatusName($history['new_value']));
             case 'comment':
-                return "Comentário adicionado";
+                return __('Comentário adicionado', 'scrumban');
+            case 'branch':
+                return __('Branch criada', 'scrumban');
+            case 'pull_request':
+                return __('Pull Request criado', 'scrumban');
             case 'update':
                 $field_names = [
-                    'name' => 'Nome',
-                    'description' => 'Descrição',
-                    'priority' => 'Prioridade',
-                    'users_id_assigned' => 'Responsável',
-                    'story_points' => 'Story Points',
-                    'branch' => 'Branch',
+                    'name' => __('Nome', 'scrumban'),
+                    'description' => __('Descrição', 'scrumban'),
+                    'priority' => __('Prioridade', 'scrumban'),
+                    'users_id_assigned' => __('Responsável', 'scrumban'),
+                    'story_points' => __('Story Points', 'scrumban'),
+                    'branch' => __('Branch', 'scrumban'),
                     'pull_request' => 'Pull Request'
                 ];
                 $field_name = $field_names[$history['field']] ?? $history['field'];
-                return "Campo \"$field_name\" alterado";
+                return sprintf(__('Campo "%s" alterado', 'scrumban'), $field_name);
             default:
-                return "Ação: " . $history['action'];
+                return sprintf(__('Ação: %s', 'scrumban'), $history['action']);
         }
     }
 }

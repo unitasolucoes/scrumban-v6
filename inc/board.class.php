@@ -140,51 +140,71 @@ class PluginScrumbanBoard extends CommonDBTM {
      */
     static function canUserEditBoard($user_id, $board_id) {
         global $DB;
-        
-        // Admin do sistema pode tudo
+
         if (Session::haveRight('config', UPDATE)) {
             return true;
         }
-        
-        // Criador do quadro pode editar
+
         $board = new self();
-        if ($board->getFromDB($board_id) && $board->fields['users_id_created'] == $user_id) {
+        if (!$board->getFromDB($board_id)) {
+            return false;
+        }
+
+        if ($board->fields['users_id_created'] == $user_id) {
             return true;
         }
-        
-        // Verificar permissão através da equipe
-        $query = "SELECT tb.can_edit 
+
+        if ($board->fields['visibility'] === 'public') {
+            $query = "SELECT tb.can_edit
+                      FROM glpi_plugin_scrumban_team_boards tb
+                      INNER JOIN glpi_plugin_scrumban_team_members tm ON tm.teams_id = tb.teams_id
+                      WHERE tb.boards_id = '" . (int)$board_id . "'
+                        AND tm.users_id = '" . (int)$user_id . "'
+                        AND tb.can_edit = 1";
+
+            $result = $DB->query($query);
+            if ($DB->numrows($result) > 0) {
+                return true;
+            }
+        }
+
+        $query = "SELECT tb.can_edit
                   FROM glpi_plugin_scrumban_team_boards tb
                   INNER JOIN glpi_plugin_scrumban_team_members tm ON tm.teams_id = tb.teams_id
-                  WHERE tb.boards_id = '$board_id' AND tm.users_id = '$user_id' AND tb.can_edit = 1";
-        
+                  WHERE tb.boards_id = '" . (int)$board_id . "'
+                    AND tm.users_id = '" . (int)$user_id . "'
+                    AND tb.can_edit = 1";
+
         $result = $DB->query($query);
         return $DB->numrows($result) > 0;
     }
-    
+
     /**
      * Verificar se o usuário pode gerenciar um quadro
      */
     static function canUserManageBoard($user_id, $board_id) {
         global $DB;
-        
-        // Admin do sistema pode tudo
+
         if (Session::haveRight('config', UPDATE)) {
             return true;
         }
-        
-        // Criador do quadro pode gerenciar
+
         $board = new self();
-        if ($board->getFromDB($board_id) && $board->fields['users_id_created'] == $user_id) {
+        if (!$board->getFromDB($board_id)) {
+            return false;
+        }
+
+        if ($board->fields['users_id_created'] == $user_id) {
             return true;
         }
-        
-        // Verificar permissão através da equipe
-        $query = "SELECT tb.can_manage 
+
+        $query = "SELECT tb.can_manage
                   FROM glpi_plugin_scrumban_team_boards tb
                   INNER JOIN glpi_plugin_scrumban_team_members tm ON tm.teams_id = tb.teams_id
-                  WHERE tb.boards_id = '$board_id' AND tm.users_id = '$user_id' AND tb.can_manage = 1";
-        
+                  WHERE tb.boards_id = '" . (int)$board_id . "'
+                    AND tm.users_id = '" . (int)$user_id . "'
+                    AND tb.can_manage = 1";
+
         $result = $DB->query($query);
         return $DB->numrows($result) > 0;
     }

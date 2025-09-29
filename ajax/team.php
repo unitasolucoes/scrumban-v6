@@ -65,12 +65,11 @@ switch ($action) {
  * Adicionar membro à equipe
  */
 function addMember() {
-    // Verificar permissões
-    if (!Session::haveRight('scrumban_team', UPDATE)) {
-        echo json_encode(['success' => false, 'error' => 'Sem permissão para atualizar']);
+    if (!Session::getLoginUserID()) {
+        echo json_encode(['success' => false, 'error' => 'Usuário não autenticado']);
         return;
     }
-    
+
     // Validar parâmetros
     $teams_id = (int)($_POST['teams_id'] ?? 0);
     $users_id = (int)($_POST['users_id'] ?? 0);
@@ -119,12 +118,11 @@ function addMember() {
  * Remover membro da equipe
  */
 function removeMember() {
-    // Verificar permissões
-    if (!Session::haveRight('scrumban_team', UPDATE)) {
-        echo json_encode(['success' => false, 'error' => 'Sem permissão para atualizar']);
+    if (!Session::getLoginUserID()) {
+        echo json_encode(['success' => false, 'error' => 'Usuário não autenticado']);
         return;
     }
-    
+
     // Validar parâmetros
     $member_id = (int)($_POST['member_id'] ?? 0);
     
@@ -170,12 +168,11 @@ function removeMember() {
  * Alterar papel do membro
  */
 function changeRole() {
-    // Verificar permissões
-    if (!Session::haveRight('scrumban_team', UPDATE)) {
-        echo json_encode(['success' => false, 'error' => 'Sem permissão para atualizar']);
+    if (!Session::getLoginUserID()) {
+        echo json_encode(['success' => false, 'error' => 'Usuário não autenticado']);
         return;
     }
-    
+
     // Validar parâmetros
     $member_id = (int)($_POST['member_id'] ?? 0);
     $new_role = $_POST['role'] ?? '';
@@ -224,12 +221,11 @@ function changeRole() {
  * Adicionar quadro à equipe
  */
 function addBoard() {
-    // Verificar permissões
-    if (!Session::haveRight('scrumban_team', UPDATE)) {
-        echo json_encode(['success' => false, 'error' => 'Sem permissão para atualizar']);
+    if (!Session::getLoginUserID()) {
+        echo json_encode(['success' => false, 'error' => 'Usuário não autenticado']);
         return;
     }
-    
+
     // Validar parâmetros
     $teams_id = (int)($_POST['teams_id'] ?? 0);
     $boards_id = (int)($_POST['boards_id'] ?? 0);
@@ -277,12 +273,11 @@ function addBoard() {
  * Remover quadro da equipe
  */
 function removeBoard() {
-    // Verificar permissões
-    if (!Session::haveRight('scrumban_team', UPDATE)) {
-        echo json_encode(['success' => false, 'error' => 'Sem permissão para atualizar']);
+    if (!Session::getLoginUserID()) {
+        echo json_encode(['success' => false, 'error' => 'Usuário não autenticado']);
         return;
     }
-    
+
     // Validar parâmetros
     $team_board_id = (int)($_POST['team_board_id'] ?? 0);
     
@@ -322,12 +317,11 @@ function removeBoard() {
  * Atualizar permissões do quadro na equipe
  */
 function updatePermissions() {
-    // Verificar permissões
-    if (!Session::haveRight('scrumban_team', UPDATE)) {
-        echo json_encode(['success' => false, 'error' => 'Sem permissão para atualizar']);
+    if (!Session::getLoginUserID()) {
+        echo json_encode(['success' => false, 'error' => 'Usuário não autenticado']);
         return;
     }
-    
+
     // Validar parâmetros
     $team_board_id = (int)($_POST['id'] ?? 0);
     $can_edit = isset($_POST['can_edit']) ? 1 : 0;
@@ -369,43 +363,31 @@ function updatePermissions() {
  * Criar nova equipe
  */
 function createTeam() {
-    // Verificar permissões
-    if (!Session::haveRight('scrumban_team', CREATE)) {
-        echo json_encode(['success' => false, 'error' => 'Sem permissão para criar']);
+    if (!Session::getLoginUserID()) {
+        echo json_encode(['success' => false, 'error' => 'Usuário não autenticado']);
         return;
     }
-    
-    // Validar parâmetros
+
     $name = trim($_POST['name'] ?? '');
-    $description = trim($_POST['description'] ?? '');
-    $manager_id = (int)($_POST['manager_id'] ?? Session::getLoginUserID());
-    
-    if (empty($name)) {
+    if ($name === '') {
         echo json_encode(['success' => false, 'error' => 'Nome é obrigatório']);
         return;
     }
-    
-    if (strlen($name) > 255) {
-        echo json_encode(['success' => false, 'error' => 'Nome muito longo (máximo 255 caracteres)']);
-        return;
-    }
-    
-    // Preparar dados
-    $data = [
-        'name' => $name,
-        'description' => $description,
-        'manager_id' => $manager_id,
-        'is_active' => 1
-    ];
-    
-    // Criar equipe
+
+    $description = trim($_POST['description'] ?? '');
+    $manager_id  = (int)($_POST['manager_id'] ?? Session::getLoginUserID());
+
     $team = new PluginScrumbanTeam();
-    if ($team->add($data)) {
-        echo json_encode([
-            'success' => true, 
-            'team_id' => $team->fields['id'], 
-            'message' => 'Equipe criada com sucesso'
-        ]);
+    $team_id = $team->add([
+        'name'        => $name,
+        'description' => $description,
+        'manager_id'  => $manager_id,
+        'is_active'   => 1,
+        'entities_id' => $_SESSION['glpiactive_entity'] ?? 0
+    ]);
+
+    if ($team_id) {
+        echo json_encode(['success' => true, 'team_id' => $team_id]);
     } else {
         echo json_encode(['success' => false, 'error' => 'Erro ao criar equipe']);
     }

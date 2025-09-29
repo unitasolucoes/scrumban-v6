@@ -195,44 +195,42 @@ function updateSprint() {
 }
 
 function createSprint() {
-    if (!Session::haveRight('scrumban_board', CREATE)) {
-        echo json_encode(['success' => false, 'error' => 'Sem permissão']);
+    if (!Session::getLoginUserID()) {
+        echo json_encode(['success' => false, 'error' => 'Usuário não autenticado']);
         return;
     }
-    
+
     $boards_id = (int)($_POST['boards_id'] ?? 0);
-    
     if (!$boards_id) {
-        echo json_encode(['success' => false, 'error' => 'ID do quadro não fornecido']);
+        echo json_encode(['success' => false, 'error' => 'ID do quadro obrigatório']);
         return;
     }
-    
-    // Verificar permissão no quadro
-    if (!PluginScrumbanBoard::canUserManageBoard(Session::getLoginUserID(), $boards_id)) {
-        echo json_encode(['success' => false, 'error' => 'Sem permissão para gerenciar este quadro']);
+
+    if (!PluginScrumbanBoard::canUserEditBoard(Session::getLoginUserID(), $boards_id)) {
+        echo json_encode(['success' => false, 'error' => 'Sem permissão neste quadro']);
         return;
     }
-    
-    // Validar dados obrigatórios
-    if (empty($_POST['name'])) {
+
+    $name = trim($_POST['name'] ?? '');
+    if ($name === '') {
         echo json_encode(['success' => false, 'error' => 'Nome é obrigatório']);
         return;
     }
-    
-    // Preparar dados do sprint
+
     $data = [
-        'boards_id' => $boards_id,
-        'name' => $_POST['name'],
+        'boards_id'   => $boards_id,
+        'name'        => $name,
         'description' => $_POST['description'] ?? '',
-        'date_start' => $_POST['date_start'] ?? null,
-        'date_end' => $_POST['date_end'] ?? null,
-        'is_active' => isset($_POST['is_active']) ? 1 : 0
+        'date_start'  => $_POST['date_start'] ?? null,
+        'date_end'    => $_POST['date_end'] ?? null,
+        'is_active'   => isset($_POST['is_active']) ? 1 : 0
     ];
-    
-    // Criar sprint
+
     $sprint = new PluginScrumbanSprint();
-    if ($sprint->add($data)) {
-        echo json_encode(['success' => true, 'sprint_id' => $sprint->fields['id'], 'message' => 'Sprint criado com sucesso']);
+    $sprint_id = $sprint->add($data);
+
+    if ($sprint_id) {
+        echo json_encode(['success' => true, 'sprint_id' => $sprint_id]);
     } else {
         echo json_encode(['success' => false, 'error' => 'Erro ao criar sprint']);
     }
