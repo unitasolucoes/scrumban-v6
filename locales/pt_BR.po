@@ -1,0 +1,428 @@
+# GLPI Plugin Scrumban - Portuguese (Brazil) Translation
+# Copyright (C) 2024 Unitá Soluções Digitais
+# This file is distributed under the same license as the Scrumban plugin.
+
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: pt_BR\n"
+
+# Menu
+msgid "Scrumban"
+msgstr "Scrumban"
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "Teams"
+msgid_plural "Teams"
+msgstr[0] "Equipe"
+msgstr[1] "Equipes"
+
+msgid "Boards"
+msgid_plural "Boards"
+msgstr[0] "Quadro"
+msgstr[1] "Quadros"
+
+msgid "Cards"
+msgid_plural "Cards"
+msgstr[0] "Card"
+msgstr[1] "Cards"
+
+msgid "Sprints"
+msgid_plural "Sprints"
+msgstr[0] "Sprint"
+msgstr[1] "Sprints"
+
+# Geral
+msgid "Name"
+msgstr "Nome"
+
+msgid "Description"
+msgstr "Descrição"
+
+msgid "Active"
+msgstr "Ativo"
+
+msgid "Manager"
+msgstr "Gerente"
+
+msgid "Member"
+msgstr "Membro"
+
+msgid "Leader"
+msgstr "Líder"
+
+msgid "Administrator"
+msgstr "Administrador"
+
+msgid "Role"
+msgstr "Papel"
+
+msgid "Actions"
+msgstr "Ações"
+
+msgid "Created on"
+msgstr "Criado em"
+
+msgid "Modified on"
+msgstr "Modificado em"
+
+msgid "Save"
+msgstr "Salvar"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Delete"
+msgstr "Excluir"
+
+msgid "Edit"
+msgstr "Editar"
+
+msgid "View"
+msgstr "Visualizar"
+
+msgid "Manage"
+msgstr "Gerenciar"
+
+msgid "Add"
+msgstr "Adicionar"
+
+msgid "Remove"
+msgstr "Remover"
+
+msgid "Create"
+msgstr "Criar"
+
+msgid "Update"
+msgstr "Atualizar"
+
+# Equipes
+msgid "Team"
+msgid_plural "Teams"
+msgstr[0] "Equipe"
+msgstr[1] "Equipes"
+
+msgid "New Team"
+msgstr "Nova Equipe"
+
+msgid "Add Member"
+msgstr "Adicionar Membro"
+
+msgid "Remove Member"
+msgstr "Remover Membro"
+
+msgid "Team Members"
+msgstr "Membros da Equipe"
+
+msgid "Associate Board"
+msgstr "Associar Quadro"
+
+msgid "Remove Board"
+msgstr "Remover Quadro"
+
+msgid "Edit Permissions"
+msgstr "Editar Permissões"
+
+msgid "Can edit cards and sprints"
+msgstr "Pode editar cards e sprints"
+
+msgid "Can manage board settings"
+msgstr "Pode gerenciar configurações do quadro"
+
+msgid "My Teams"
+msgstr "Minhas Equipes"
+
+msgid "All Teams (Admin)"
+msgstr "Todas as Equipes (Admin)"
+
+msgid "Team created successfully"
+msgstr "Equipe criada com sucesso"
+
+msgid "Error creating team"
+msgstr "Erro ao criar equipe"
+
+msgid "Member added successfully"
+msgstr "Membro adicionado com sucesso"
+
+msgid "Error adding member"
+msgstr "Erro ao adicionar membro"
+
+msgid "User is already a member of this team"
+msgstr "Usuário já é membro desta equipe"
+
+msgid "Cannot remove the last administrator"
+msgstr "Não é possível remover o último administrador"
+
+# Quadros
+msgid "Board"
+msgid_plural "Boards"
+msgstr[0] "Quadro"
+msgstr[1] "Quadros"
+
+msgid "New Board"
+msgstr "Novo Quadro"
+
+msgid "Kanban Board"
+msgstr "Quadro Kanban"
+
+msgid "Owner Team"
+msgstr "Equipe Proprietária"
+
+msgid "Visibility"
+msgstr "Visibilidade"
+
+msgid "Public"
+msgstr "Público"
+
+msgid "Team"
+msgstr "Equipe"
+
+msgid "Private"
+msgstr "Privado"
+
+msgid "Available Boards"
+msgstr "Quadros Disponíveis"
+
+msgid "No boards available"
+msgstr "Nenhum quadro disponível"
+
+msgid "Board not found"
+msgstr "Quadro não encontrado"
+
+msgid "Access denied"
+msgstr "Acesso negado"
+
+# Cards
+msgid "Card"
+msgid_plural "Cards"
+msgstr[0] "Card"
+msgstr[1] "Cards"
+
+msgid "New Card"
+msgstr "Novo Card"
+
+msgid "Card Details"
+msgstr "Detalhes do Card"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Priority"
+msgstr "Prioridade"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Assignee"
+msgstr "Responsável"
+
+msgid "Requester"
+msgstr "Solicitante"
+
+msgid "Story Points"
+msgstr "Story Points"
+
+msgid "Planned Date"
+msgstr "Data Planejada"
+
+msgid "Completion Date"
+msgstr "Data de Conclusão"
+
+msgid "Labels"
+msgstr "Labels"
+
+msgid "Acceptance Criteria"
+msgstr "Critérios de Aceitação"
+
+msgid "Test Scenarios"
+msgstr "Cenários de Teste"
+
+msgid "Development"
+msgstr "Desenvolvimento"
+
+msgid "Branch"
+msgstr "Branch"
+
+msgid "Pull Request"
+msgstr "Pull Request"
+
+msgid "Commits"
+msgstr "Commits"
+
+msgid "Comments"
+msgstr "Comentários"
+
+msgid "Add Comment"
+msgstr "Adicionar Comentário"
+
+msgid "History"
+msgstr "Histórico"
+
+msgid "Card History"
+msgstr "Histórico do Card"
+
+msgid "Attachments"
+msgstr "Anexos"
+
+msgid "Add Attachment"
+msgstr "Adicionar Anexo"
+
+# Tipos de Card
+msgid "Feature"
+msgstr "Funcionalidade"
+
+msgid "Bug"
+msgstr "Bug"
+
+msgid "Task"
+msgstr "Tarefa"
+
+msgid "Story"
+msgstr "História"
+
+# Prioridades
+msgid "Low"
+msgstr "Baixa"
+
+msgid "Normal"
+msgstr "Normal"
+
+msgid "High"
+msgstr "Alta"
+
+msgid "Critical"
+msgstr "Crítica"
+
+# Status
+msgid "Backlog"
+msgstr "Backlog"
+
+msgid "To Do"
+msgstr "A Fazer"
+
+msgid "In Progress"
+msgstr "Em Execução"
+
+msgid "Review"
+msgstr "Review"
+
+msgid "Done"
+msgstr "Concluído"
+
+# Sprints
+msgid "Sprint"
+msgid_plural "Sprints"
+msgstr[0] "Sprint"
+msgstr[1] "Sprints"
+
+msgid "New Sprint"
+msgstr "Novo Sprint"
+
+msgid "Active Sprint"
+msgstr "Sprint Ativo"
+
+msgid "Start Date"
+msgstr "Data de Início"
+
+msgid "End Date"
+msgstr "Data de Fim"
+
+msgid "Activate"
+msgstr "Ativar"
+
+msgid "Deactivate"
+msgstr "Desativar"
+
+msgid "Sprint Progress"
+msgstr "Progresso do Sprint"
+
+msgid "Completed"
+msgstr "Concluído"
+
+# Dashboard
+msgid "Scrumban Dashboard"
+msgstr "Dashboard Scrumban"
+
+msgid "My Tasks"
+msgstr "Minhas Tarefas"
+
+msgid "My Recent Tasks"
+msgstr "Minhas Tarefas Recentes"
+
+msgid "Quick Actions"
+msgstr "Ações Rápidas"
+
+msgid "Status Distribution"
+msgstr "Distribuição por Status"
+
+msgid "Active Sprints"
+msgstr "Sprints Ativos"
+
+msgid "No tasks assigned"
+msgstr "Nenhuma tarefa atribuída"
+
+# Filtros
+msgid "Filters"
+msgstr "Filtros"
+
+msgid "Advanced Filters"
+msgstr "Filtros Avançados"
+
+msgid "All"
+msgstr "Todos"
+
+msgid "My tasks"
+msgstr "Minhas tarefas"
+
+msgid "Search..."
+msgstr "Buscar..."
+
+msgid "Clear Filters"
+msgstr "Limpar Filtros"
+
+msgid "Apply Filters"
+msgstr "Aplicar Filtros"
+
+# Mensagens de erro
+msgid "Required field"
+msgstr "Campo obrigatório"
+
+msgid "Invalid data"
+msgstr "Dados inválidos"
+
+msgid "Operation not permitted"
+msgstr "Operação não permitida"
+
+msgid "Item not found"
+msgstr "Item não encontrado"
+
+msgid "Connection error"
+msgstr "Erro de conexão"
+
+msgid "Unknown error"
+msgstr "Erro desconhecido"
+
+# Mensagens de sucesso
+msgid "Operation completed successfully"
+msgstr "Operação realizada com sucesso"
+
+msgid "Item created successfully"
+msgstr "Item criado com sucesso"
+
+msgid "Item updated successfully"
+msgstr "Item atualizado com sucesso"
+
+msgid "Item deleted successfully"
+msgstr "Item excluído com sucesso"
+
+msgid "Status updated successfully"
+msgstr "Status atualizado com sucesso"
+
+msgid "Comment added successfully"
+msgstr "Comentário adicionado com sucesso"
+
+# DoR/DoD
+msgid "DoR"
+msgstr "DoR"
